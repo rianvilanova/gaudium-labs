@@ -133,7 +133,7 @@ Use os seguintes guias para a escolha:
   // Proxy endpoint to handle outgoing webhooks server-side to bypass client-side CORS and sandboxing
   app.post("/api/webhook", async (req, res) => {
     const { evento, demanda } = req.body;
-    const WEBHOOK_URL = "https://rianlabs.app.n8n.cloud/webhook-test/9734d683-1dc6-4641-8270-f137387ed669";
+    const WEBHOOK_URL = "https://rianlabs.app.n8n.cloud/webhook/9734d683-1dc6-4641-8270-f137387ed669";
     
     try {
       console.log(`[Proxy Server] Disparando evento "${evento}" para o webhook...`);
@@ -164,7 +164,7 @@ Use os seguintes guias para a escolha:
   // Proxy endpoint for AI creation webhook with robust local fallback fallback to cover offline n8n flows
   app.post("/api/webhook-ia", async (req, res) => {
     const { titulo, descricao } = req.body;
-    const WEBHOOK_TEST_URL = "https://rianlabs.app.n8n.cloud/webhook-test/d7657715-4c14-4bf7-a4e9-52f163c2eb7c";
+    const WEBHOOK_TEST_URL = "https://rianlabs.app.n8n.cloud/webhook/d7657715-4c14-4bf7-a4e9-52f163c2eb7c";
     const WEBHOOK_PROD_URL = "https://rianlabs.app.n8n.cloud/webhook/d7657715-4c14-4bf7-a4e9-52f163c2eb7c";
     
     let webhookSuccess = false;

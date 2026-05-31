@@ -3,7 +3,7 @@ import { Demanda, HistoricoDemanda, Status, Notificacao, TipoNotificacao } from 
 import { MOCK_DEMANDAS, MOCK_HISTORICO, MOCK_USERS } from "../data";
 import { useAuth } from "./AuthContext";
 
-export const WEBHOOK_URL = "https://rianlabs.app.n8n.cloud/webhook-test/9734d683-1dc6-4641-8270-f137387ed669";
+export const WEBHOOK_URL = "https://rianlabs.app.n8n.cloud/webhook/9734d683-1dc6-4641-8270-f137387ed669";
 
 export const enviarWebhookDemanda = async (evento: string, demanda: Demanda) => {
   try {
