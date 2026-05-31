@@ -2,11 +2,11 @@ import React from "react";
 import { useDatabase } from "../context/DatabaseContext";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bell, CheckCircle, Info, UserPlus, FileText } from "lucide-react";
+import { Bell, CheckCircle, Info, UserPlus, FileText, Trash2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 export function NotificacoesList() {
-  const { notificacoes, markNotificacaoAsRead } = useDatabase();
+  const { notificacoes, markNotificacaoAsRead, clearAllNotificacoes } = useDatabase();
   const { currentUser } = useAuth();
 
   const userNotificacoes = notificacoes
@@ -37,9 +37,21 @@ export function NotificacoesList() {
 
   return (
     <div className="max-w-3xl mx-auto py-6">
-      <div className="flex items-center gap-3 mb-6">
-        <Bell className="w-5 h-5 text-g-text-secondary" />
-        <h2 className="text-lg font-bold text-g-text-primary">Notificações</h2>
+      <div className="flex items-center justify-between gap-3 mb-6">
+        <div className="flex items-center gap-3">
+          <Bell className="w-5 h-5 text-g-text-secondary" />
+          <h2 className="text-lg font-bold text-g-text-primary">Notificações</h2>
+        </div>
+        
+        {userNotificacoes.length > 0 && (
+          <button
+            onClick={clearAllNotificacoes}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-g-text-tertiary hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Excluir todas</span>
+          </button>
+        )}
       </div>
 
       <div className="space-y-3">

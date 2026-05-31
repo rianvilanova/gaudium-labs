@@ -67,6 +67,7 @@ interface DatabaseContextType {
   deleteStatus: (statusName: string) => void;
   assignResponsaveis: (demandaId: string, responsaveisIds: string[]) => void;
   markNotificacaoAsRead: (id: string) => void;
+  clearAllNotificacoes: () => void;
   enviarWebhookDemanda: (evento: string, demanda: Demanda) => Promise<void>;
 }
 
@@ -181,6 +182,11 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
 
   const markNotificacaoAsRead = (id: string) => {
     setNotificacoes(prev => prev.map(n => n.id === id ? { ...n, lida: true } : n));
+  };
+
+  const clearAllNotificacoes = () => {
+    if (!currentUser) return;
+    setNotificacoes(prev => prev.filter(n => n.usuario_id !== currentUser.uid));
   };
 
   const addDemanda = (
@@ -496,6 +502,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
       deleteStatus,
       assignResponsaveis,
       markNotificacaoAsRead,
+      clearAllNotificacoes,
       enviarWebhookDemanda
     }}>
       {children}
