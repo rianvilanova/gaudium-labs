@@ -161,19 +161,14 @@ Use os seguintes guias para a escolha:
     }
   });
 
-  // Proxy endpoint for AI creation webhook with robust local fallback fallback to cover offline n8n flows
+  // Proxy endpoint for AI creation webhook
   app.post("/api/webhook-ia", async (req, res) => {
     const { titulo, descricao } = req.body;
-    const WEBHOOK_TEST_URL = "https://rianlabs.app.n8n.cloud/webhook/d7657715-4c14-4bf7-a4e9-52f163c2eb7c";
-    const WEBHOOK_PROD_URL = "https://rianlabs.app.n8n.cloud/webhook/d7657715-4c14-4bf7-a4e9-52f163c2eb7c";
+    const WEBHOOK_URL = "https://rianlabs.app.n8n.cloud/webhook/d7657715-4c14-4bf7-a4e9-52f163c2eb7c";
     
-    let webhookSuccess = false;
-    let responseData: any = null;
-
-    // 1. Tenta o webhook-test do n8n (padrão)
     try {
-      console.log(`[Proxy Server] Tentando disparar para o webhook-test da n8n...`);
-      const response = await fetch(WEBHOOK_TEST_URL, {
+      console.log(`[Proxy Server] Disparando webhook de IA...`);
+      const response = await fetch(WEBHOOK_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -184,145 +179,16 @@ Use os seguintes guias para a escolha:
         }),
       });
 
-      if (response.ok) {
-        responseData = await response.json().catch(() => ({}));
-        webhookSuccess = true;
-        console.log(`[Proxy Server] Sucesso via webhook-test n8n.`);
-      } else {
-        console.warn(`[Proxy Server] webhook-test n8n retornou erro: ${response.status} ${response.statusText}`);
+      if (!response.ok) {
+        throw new Error(`Status ${response.status}`);
       }
-    } catch (error) {
-      console.warn(`[Proxy Server] Erro ao conectar no webhook-test:`, error);
-    }
 
-    // 2. Se o webhook-test falhou (ex: modo teste pausado no n8n), tenta o webhook de produção
-    if (!webhookSuccess) {
-      try {
-        console.log(`[Proxy Server] Tentando disparar para o webhook de produção da n8n...`);
-        const response = await fetch(WEBHOOK_PROD_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            titulo: titulo || "",
-            descricao: descricao || ""
-          }),
-        });
-
-        if (response.ok) {
-          responseData = await response.json().catch(() => ({}));
-          webhookSuccess = true;
-          console.log(`[Proxy Server] Sucesso via webhook de produção n8n.`);
-        } else {
-          console.warn(`[Proxy Server] webhook de produção n8n retornou erro: ${response.status} ${response.statusText}`);
-        }
-      } catch (error) {
-        console.warn(`[Proxy Server] Erro ao conectar no webhook de produção:`, error);
-      }
-    }
-
-    // Se o webhook respondeu com sucesso, retorna os dados da n8n
-    if (webhookSuccess && responseData && (responseData.titulo_sugerido || responseData.departamento_destino)) {
+      const responseData = await response.json().catch(() => ({}));
       res.json({ success: true, data: responseData });
-      return;
+    } catch (error) {
+      console.error(`[Proxy Server] Erro ao conectar no webhook-ia:`, error);
+      res.status(500).json({ success: false, error: String(error) });
     }
-
-    // 3. Autocura inteligente (Self-healing fallback) com IA local ou Heurística se o n8n estiver offline/404/500
-    console.log(`[Proxy Server] Iniciando inteligência de contingência local da Gaudium Labs...`);
-    const apiKey = process.env.GEMINI_API_KEY;
-
-    if (apiKey) {
-      try {
-        const ai = new GoogleGenAI({
-          apiKey: apiKey,
-          httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-        });
-
-        const systemPrompt = `Você é o assistente inteligente de triagem da Gaudium Labs.
-Analise a demanda descrita e retorne um objeto JSON estrito com o seguinte esquema:
-{
-  "titulo_sugerido": "Título curto, profissional e objetivo da demanda baseada na descrição (máximo 8 palavras). Se o usuário informou um título, use-o ou melhore-o.",
-  "departamento_destino": "Filtre obrigatoriamente um destes departamentos: 'TI', 'RH', 'Marketing', 'Financeiro'.",
-  "departamento_justificativa": "Curta justificativa de por que este departamento foi selecionado.",
-  "prioridade": "Obrigatoriamente um destes: 'Baixa', 'Média', 'Alta'.",
-  "prioridade_justificativa": "Curta justificativa do nível de prioridade atribuído."
-}`;
-
-        const userMessage = `Descrição original: "${descricao}"\nTítulo informado pelo usuário: "${titulo || ""}"`;
-
-        const response = await ai.models.generateContent({
-          model: "gemini-3.5-flash",
-          contents: userMessage,
-          config: {
-            systemInstruction: systemPrompt,
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                titulo_sugerido: { type: Type.STRING },
-                departamento_destino: { type: Type.STRING },
-                departamento_justificativa: { type: Type.STRING },
-                prioridade: { type: Type.STRING },
-                prioridade_justificativa: { type: Type.STRING }
-              },
-              required: ["titulo_sugerido", "departamento_destino", "departamento_justificativa", "prioridade", "prioridade_justificativa"]
-            }
-          }
-        });
-
-        const responseText = response.text || "";
-        const parsedData = JSON.parse(responseText.trim());
-        console.log(`[Proxy Server] Contingência Gemini concluída com sucesso.`);
-        res.json({ success: true, data: parsedData, source: "gemini-fallback" });
-        return;
-      } catch (geminiError) {
-        console.error(`[Proxy Server] Erro no Gemini de contingência:`, geminiError);
-      }
-    }
-
-    // 4. Heurística determinística ultrassegura (última barreira de contingência preventiva)
-    console.log(`[Proxy Server] Ativando heurísticas determinísticas rápidas.`);
-    const lowercaseDesc = (descricao || "").toLowerCase();
-    
-    const titulo_sugerido = titulo ? titulo : (descricao.slice(0, 45) + (descricao.length > 45 ? "..." : ""));
-    
-    let departamento_destino = "TI";
-    let departamento_justificativa = "A demanda cita questões técnicas de infraestrutura, software, acessos ou informática de sistemas.";
-    
-    if (lowercaseDesc.includes("contratar") || lowercaseDesc.includes("contratação") || lowercaseDesc.includes("benefício") || lowercaseDesc.includes("férias") || lowercaseDesc.includes("folha") || lowercaseDesc.includes("demissão") || lowercaseDesc.includes("rh") || lowercaseDesc.includes("recursos humanos")) {
-      departamento_destino = "RH";
-      departamento_justificativa = "O assunto está relacionado a benefícios, férias, contratação ou departamento pessoal (RH).";
-    } else if (lowercaseDesc.includes("artes") || lowercaseDesc.includes("marketing") || lowercaseDesc.includes("post") || lowercaseDesc.includes("banner") || lowercaseDesc.includes("redes sociais") || lowercaseDesc.includes("campanha") || lowercaseDesc.includes("divulgar") || lowercaseDesc.includes("anúncio") || lowercaseDesc.includes("panfleto")) {
-      departamento_destino = "Marketing";
-      departamento_justificativa = "Refere-se ao design de artes, publicações em mídias, campanhas publicitárias ou marketing corporativo.";
-    } else if (lowercaseDesc.includes("conta") || lowercaseDesc.includes("receber") || lowercaseDesc.includes("pagar") || lowercaseDesc.includes("pagamento") || lowercaseDesc.includes("financeiro") || lowercaseDesc.includes("faturamento") || lowercaseDesc.includes("reembolso") || lowercaseDesc.includes("fiscal") || lowercaseDesc.includes("nota")) {
-      departamento_destino = "Financeiro";
-      departamento_justificativa = "Assunto relacionado a faturamento, contas a pagar/receber, reembolsos ou movimentações financeiras.";
-    }
-
-    let prioridade = "Média";
-    let prioridade_justificativa = "Fluxo operacional padrão com prioridade média atribuída automaticamente.";
-    
-    if (lowercaseDesc.includes("urgente") || lowercaseDesc.includes("crítico") || lowercaseDesc.includes("erro") || lowercaseDesc.includes("travado") || lowercaseDesc.includes("fora do ar") || lowercaseDesc.includes("impossibilitado") || lowercaseDesc.includes("paralisado")) {
-      prioridade = "Alta";
-      prioridade_justificativa = "Gravidade urgentíssima devido a termos que indicam impedimento crítico ou erros paralisantes.";
-    } else if (lowercaseDesc.includes("planejamento") || lowercaseDesc.includes("futuro") || lowercaseDesc.includes("sugestão") || lowercaseDesc.includes("melhoria fluida") || lowercaseDesc.includes("baixa prioridade")) {
-      prioridade = "Baixa";
-      prioridade_justificativa = "Identificado com foco consultivo ou de melhoria futura sem impacto imediato.";
-    }
-
-    res.json({
-      success: true,
-      data: {
-        titulo_sugerido,
-        departamento_destino,
-        departamento_justificativa,
-        prioridade,
-        prioridade_justificativa
-      },
-      source: "heuristic-fallback"
-    });
   });
 
   // Vite middleware for development
