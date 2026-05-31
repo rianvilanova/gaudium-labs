@@ -3,10 +3,11 @@ import { Demanda, HistoricoDemanda, Status, Notificacao, TipoNotificacao } from 
 import { MOCK_DEMANDAS, MOCK_HISTORICO, MOCK_USERS } from "../data";
 import { useAuth } from "./AuthContext";
 
-export const WEBHOOK_URL = "https://rianlabs.app.n8n.cloud/webhook/9734d683-1dc6-4641-8270-f137387ed669";
-
 export const enviarWebhookDemanda = async (evento: string, demanda: Demanda) => {
   try {
+    const webhookUrl = import.meta.env.VITE_WEBHOOK_URL || "https://rianlabs.app.n8n.cloud/webhook/9734d683-1dc6-4641-8270-f137387ed669";
+    if (!webhookUrl) return;
+
     // Busca o criador nos usuários para obter o departamento do solicitante que abriu o chamado
     const criador = MOCK_USERS.find(u => u.uid === demanda.criado_por);
     const departamento_solicitante = criador ? criador.departamento : "";
@@ -34,8 +35,8 @@ export const enviarWebhookDemanda = async (evento: string, demanda: Demanda) => 
       ...(evento === "demanda_criada" ? { departamento_solicitante } : {})
     };
     
-    // Enviamos para o nosso proxy local (/api/webhook) no backend para evitar problemas de CORS no navegador
-    const response = await fetch("/api/webhook", {
+    // Enviamos diretamente para o webhook da n8n
+    const response = await fetch(webhookUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

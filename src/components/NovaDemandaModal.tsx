@@ -42,7 +42,9 @@ export function NovaDemandaModal({ onClose }: { onClose: () => void }) {
       // If user chose not to fill the title, send empty string
       const tituloPayload = semTituloIA ? "" : titulo;
 
-      const response = await fetch("/api/webhook-ia", {
+      const webhookUrl = import.meta.env.VITE_WEBHOOK_IA_URL || "https://rianlabs.app.n8n.cloud/webhook/d7657715-4c14-4bf7-a4e9-52f163c2eb7c";
+
+      const response = await fetch(webhookUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -67,9 +69,8 @@ export function NovaDemandaModal({ onClose }: { onClose: () => void }) {
       }
 
       const result = await response.json();
-      if (result.success && result.data) {
-        const payload = result.data;
-
+      const payload = result.data ? result.data : result;
+      if (payload && (payload.titulo_sugerido || payload.departamento_destino)) {
         // Rule 1: preencher automaticamente o campo título com titulo_sugerido, apenas se o campo título estiver vazio;
         if (payload.titulo_sugerido && (!titulo.trim() || semTituloIA)) {
           setTitulo(payload.titulo_sugerido);
